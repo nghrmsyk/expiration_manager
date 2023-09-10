@@ -1,0 +1,6 @@
+{
+    "name":"web-container",
+    "service":"web",
+    "workspaceFolder": "/app/src",
+    "dockerComposeFile": "../../docker-compose.yml"
+}

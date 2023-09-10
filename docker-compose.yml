@@ -1,0 +1,9 @@
+services:
+  web:
+    container_name: web
+    build: ./web
+    ports:
+      - 8501:8501
+    tty: true
+    volumes:
+      - ./web:/app
