@@ -7,3 +7,13 @@ services:
     tty: true
     volumes:
       - ./web:/app
+
+  api:
+    container_name: api
+    build: ./api
+    ports:
+      - 8000:8000
+    tty: true
+    volumes:
+      - ./api:/app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload

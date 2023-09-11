@@ -1,0 +1,6 @@
+{
+    "name":"api-container",
+    "service":"api",
+    "workspaceFolder": "/app/src",
+    "dockerComposeFile": "../../docker-compose.yml"
+}
