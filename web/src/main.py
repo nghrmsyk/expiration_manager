@@ -1,3 +1,4 @@
+from typing import Any
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -78,16 +79,24 @@ class DatabaseManager:
         if os.path.exists(image_path):
             os.remove(image_path)
 
-# 画像処理サーバへのリクエスト
-class ImageProcessor:
-    def __init__(self):
+class ImageUploader():
+    def __init__(self, image):
         self.server_url = "http://172.30.0.3:8000/food-expiration/"
+        self.image = image
 
-    def upload_image(self, image):
+    def get_content_type(self):
+        """Get MIME type based on file extension"""
+        if self.image.name.endswith(".png"):
+            return "image/png"
+        elif self.image.name.endswith(".jpg") or self.file_name.endswith(".jpeg"):
+            return "image/jpeg"
+        else:
+            return "application/octet-stream"
+        
+    def upload(self):
         """Upload the image to the API and get data."""
-        file_name = image.name
-        mime_type = self.get_content_type(file_name)
-        files = {"file": (file_name, image.getvalue(), mime_type)}
+        mime_type = self.get_content_type()
+        files = {"file": (self.image.name, self.image.getvalue(), mime_type)}
 
         try:
             response = requests.post(self.server_url, files=files)
@@ -97,47 +106,49 @@ class ImageProcessor:
             st.error(f"エラー: {str(e)}")
             return None
         
-    def process_image(self, image):
-        data_dict = self.upload_image(image)
-        items = self.set_input_data(image, data_dict)
-        return items
 
-    @staticmethod
-    def get_content_type(file_name):
-        """Get MIME type based on file extension"""
-        if file_name.endswith(".png"):
-            return "image/png"
-        elif file_name.endswith(".jpg") or file_name.endswith(".jpeg"):
-            return "image/jpeg"
-        else:
-            return "application/octet-stream"
-        
-    def image_crop(self, image,coordinate):
+
+# 画像処理サーバへのリクエスト
+class ImageProcessor:
+    def __init__(self, image):
+        self.length = 150
+        self.image = image
+
+    def crop(self, cx, cy, w, h):
         # 各アイテムに対応する画像領域をクロッピング
-        image = Image.open(image)
-        img_width, img_height = image.size
-        cx, cy, w, h = coordinate['cx'], coordinate['cy'], coordinate['w'], coordinate['h']
+        img_width, img_height = self.image.size
         left = int((cx - w/2) * img_width)
         upper = int((cy - h/2) * img_height)
         right = int((cx + w/2) * img_width)
         lower = int((cy + h/2) * img_height)
-        return image.crop((left, upper, right, lower))
-        
-    
-    def set_input_data(self, image, data_dict):        
-        items = []
-        for row in data_dict["data"]:
-            cropped_image = self.image_crop(image, row['coordinate'])
+        self.image = self.image.crop((left, upper, right, lower))
+        return self
 
-            item = InputData(
-                image = cropped_image,
-                item_name = row["name"],
-                expiry_type = row["type"],
-                expiry_date = datetime.datetime.strptime(row['date'], '%Y-%m-%d').date()
-            )
-            items.append(item)
-        return items
+    def square(self):
+        width, height = self.image.size
+
+        # 長い辺を基準に拡大・縮小の比率を計算
+        if width > height:
+            ratio = self.length / width
+        else:
+            ratio = self.length / height
+
+        # アスペクト比を保持しながら画像をリサイズ
+        new_width = int(width * ratio)
+        new_height = int(height * ratio)
+        self.image = self.image.resize((new_width, new_height), Image.ANTIALIAS)
+
+        # 正方形の背景を作成
+        background = Image.new('RGB', (self.length, self.length), (255, 255, 255))
+        
+        # 画像を中央に配置するためのオフセットを計算
+        offset = ((self.length - new_width) // 2, (self.length - new_height) // 2)
+                
+        # 画像を背景にペースト
+        background.paste(self.image, offset)
             
+        self.image = background
+        return self
 
 
 @dataclass
@@ -149,12 +160,14 @@ class InputData:
     expiry_date: type(datetime.date) = datetime.date.today()
     enable: bool = True
 
+
+
 class App:
-    def __init__(self,db, uploader):
+    def __init__(self,db):
         #入力データ関係の初期化
         self.autoinput_image = None
         self.input_data = []
-        self.input_column_width = [4,3,3,2,5,1]
+        self.input_column_width = [4,3,3,2,1]
         self.input_button_column_width = [2,4,11 ,3] 
 
         #DB関係の初期化
@@ -162,13 +175,30 @@ class App:
         self.db.create_table()
 
         #画像を画像処理サーバに送信する機能
-        self.uploader = uploader
         self.pre_session_uploaded = None
 
         #出力関係
         self.column_width = [4,3,3,3,2]
         self.delete_item_id = []
 
+    
+    def make_input_data(self, image, data_dict):        
+        items = []
+        for row in data_dict["data"]:
+                with Image.open(image) as img:
+                    img = ImageProcessor(img)
+                    cx, cy, w, h = row['coordinate'].values()
+                    img.crop(cx, cy, w, h)
+                    img.square()
+
+                    item = InputData(
+                        image = img.image,
+                        item_name = row["name"],
+                        expiry_type = row["type"],
+                        expiry_date = datetime.datetime.strptime(row['date'], '%Y-%m-%d').date()
+                    )
+                    items.append(item)
+        return items
 
     def autoinput(self):
         columns = st.columns([6,3])
@@ -177,9 +207,14 @@ class App:
 
             if ((image and not self.pre_session_uploaded) or #前回は画像がなかったが今回は画像がある
                 (image and self.pre_session_uploaded and image!=self.pre_session_uploaded)):#前回と今回と画像が異なる
-                self.autoinput_image = Image.open(image)
+               
                 #ファイルをサーバーへ転送
-                self.input_data = self.uploader.process_image(image)
+                uploader = ImageUploader(image)
+                data_dict = uploader.upload()
+                #入力データ更新
+                self.input_data = self.make_input_data(image, data_dict)
+                #画像を保持
+                self.autoinput_image = image
             self.pre_session_uploaded = image
                 
         with columns[1]:
@@ -205,22 +240,19 @@ class App:
         #入力データを表示
         for i, row in enumerate(self.input_data):
             st.markdown("---") 
+            new_image = st.file_uploader("画像変更", type=AVAILABLE_IMAGE_TYPE, key=f"uploader_{i}")
+            if new_image:
+                with Image.open(new_image) as img:
+                    row.image = ImageProcessor(img).square().image
             columns = st.columns(self.input_column_width)
-            with columns[5]:
+            with columns[4]:
                 state = st.checkbox("削除",key={f"delete_{row.id}"})
                 row.enable = not state
-                    
-            with columns[4]:
-                #i行目の画像入力フォーム
-                input_new_image = st.file_uploader("画像変更", type=AVAILABLE_IMAGE_TYPE, key=f"uploader_{i}")
-                if input_new_image:
-                    row.image = Image.open(input_new_image)
 
             #i行目の入力データを表示
             with columns[0]:
                 if row.image:
-                    st.image(row.image)
-                                
+                    st.image(row.image)         
             with columns[1]:
                 row.item_name = st.text_input("品名", value=row.item_name ,key=f"name_{i}")
             with columns[2]:
@@ -240,6 +272,7 @@ class App:
 
             #入力データリセット
             self.input_data = []
+
     def colored_write(self,expiry_date):
         expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
         remaining = (expiry_date - datetime.date.today()).days
@@ -281,7 +314,7 @@ class App:
                 columns[0].image(Image.open(image_path))
             else:
                 # 50pxの高さの空のスペースを確保する
-                columns[0].markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)  
+                columns[0].markdown('<div style="height:150px;"></div>', unsafe_allow_html=True)  
             #品名 
             columns[1].write(row["item_name"])
             #期限種類
@@ -302,17 +335,20 @@ if __name__ == "__main__":
         st.session_state.initialized = False
     if not st.session_state.initialized:
         #最初に一回だけ実行
-        uploader = ImageProcessor()
         db = DatabaseManager()
-        st.session_state.app = App(db, uploader)
+        st.session_state.app = App(db)
         st.session_state.initialized = True
 
     #タイトル表示
     st.set_page_config(layout="wide")
     st.title("消費期限管理アプリ")
 
-    #入力フォーム
+    #写真入力フォーム
     st.session_state.app.autoinput()
+
+    #入力フォーム
+    st.markdown("---") 
+    st.subheader("登録データ入力")
     st.session_state.app.input()
 
     #登録データの表示
