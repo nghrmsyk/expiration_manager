@@ -4,6 +4,9 @@ services:
     build: ./web
     ports:
       - 8501:8501
+    networks:
+      app_net:
+        ipv4_address: 172.30.0.2
     tty: true
     volumes:
       - ./web:/app
@@ -13,7 +16,18 @@ services:
     build: ./api
     ports:
       - 8000:8000
+    networks:
+      app_net:
+        ipv4_address: 172.30.0.3
     tty: true
     volumes:
       - ./api:/app
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+networks:
+  app_net:
+    driver: bridge
+    ipam:
+     driver: default
+     config:
+       - subnet: 172.30.0.0/24
