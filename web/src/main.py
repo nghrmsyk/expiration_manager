@@ -150,7 +150,6 @@ class ImageProcessor:
         self.image = background
         return self
 
-
 @dataclass
 class InputData:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -160,15 +159,13 @@ class InputData:
     expiry_date: type(datetime.date) = datetime.date.today()
     enable: bool = True
 
-
-
 class App:
     def __init__(self,db):
         #入力データ関係の初期化
         self.autoinput_image = None
         self.input_data = []
         self.input_column_width = [4,3,3,2,1]
-        self.input_button_column_width = [2,4,11 ,3] 
+        self.input_button_column_width = [4,4,8 ,4] 
 
         #DB関係の初期化
         self.db = db
@@ -203,7 +200,7 @@ class App:
     def autoinput(self):
         columns = st.columns([6,3])
         with columns[0]:
-            image = st.file_uploader("自動入力する画像をアップロードしてください。", type=AVAILABLE_IMAGE_TYPE, key='auto_uploader')
+            image = st.file_uploader("写真をアップロードすると消費期限が自動で入力されます", type=AVAILABLE_IMAGE_TYPE, key='auto_uploader')
 
             if ((image and not self.pre_session_uploaded) or #前回は画像がなかったが今回は画像がある
                 (image and self.pre_session_uploaded and image!=self.pre_session_uploaded)):#前回と今回と画像が異なる
@@ -229,11 +226,11 @@ class App:
             self.register()
         # 入力データ追加
         with button_columns[1]:
-            if st.button("入力データ追加"):
+            if st.button("入力欄追加"):
                 self.input_data.append(InputData())
         #削除
         with button_columns[3]:
-            if st.button("入力データ削除"):
+            if st.button("削除実行"):
                 #無効なデータは全て削除
                 self.input_data = [row for row in self.input_data if row.enable]
 
@@ -290,15 +287,15 @@ class App:
         st.markdown(colored_text, unsafe_allow_html=True)
 
     def display(self):
-        header_cols = st.columns(self.column_width)
-        header_cols[0].write("画像")
-        header_cols[1].write("品名")
-        header_cols[2].write("期限種類")
-        header_cols[3].write("期限")
-        with header_cols[4]:
-            if st.button("登録データ削除"):
-                for id in self.delete_item_id:
-                    self.db.delete(id)
+        #header_cols = st.columns(self.column_width)
+        #header_cols[0].write("画像")
+        #header_cols[1].write("品名")
+        #header_cols[2].write("期限種類")
+        #header_cols[3].write("期限")
+        #with header_cols[4]:
+        if st.button("削除実行",key="display_delete_button"):
+            for id in self.delete_item_id:
+                self.db.delete(id)
             
         #削除候補をリセット
         self.delete_item_id = []
@@ -343,20 +340,18 @@ if __name__ == "__main__":
     st.set_page_config(layout="wide")
     st.title("消費期限管理アプリ")
 
-    tabs = st.tabs(["データ登録","データ表示"])
+    tabs = st.tabs(["登録","表示"])
     
     with tabs[0]:
         #写真入力フォーム
-        st.subheader("写真入力")
         st.session_state.app.autoinput()
 
         #入力フォーム
         st.markdown("---") 
-        st.subheader("データ登録")
         st.session_state.app.input()
 
     with tabs[1]:
     #登録データの表示
-        st.subheader("登録データ一覧")
+        #st.subheader("登録データ一覧")
         st.session_state.app.display()   
 
