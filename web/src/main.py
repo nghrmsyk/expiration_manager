@@ -88,7 +88,7 @@ class ImageUploader():
         """Get MIME type based on file extension"""
         if self.image.name.endswith(".png"):
             return "image/png"
-        elif self.image.name.endswith(".jpg") or self.file_name.endswith(".jpeg"):
+        elif self.image.name.endswith(".jpg") or self.image.name.endswith(".jpeg"):
             return "image/jpeg"
         else:
             return "application/octet-stream"
@@ -203,7 +203,7 @@ class App:
     def autoinput(self):
         columns = st.columns([6,3])
         with columns[0]:
-            image = st.file_uploader("写真入力", type=AVAILABLE_IMAGE_TYPE, key='auto_uploader')
+            image = st.file_uploader("自動入力する画像をアップロードしてください。", type=AVAILABLE_IMAGE_TYPE, key='auto_uploader')
 
             if ((image and not self.pre_session_uploaded) or #前回は画像がなかったが今回は画像がある
                 (image and self.pre_session_uploaded and image!=self.pre_session_uploaded)):#前回と今回と画像が異なる
@@ -343,16 +343,20 @@ if __name__ == "__main__":
     st.set_page_config(layout="wide")
     st.title("消費期限管理アプリ")
 
-    #写真入力フォーム
-    st.session_state.app.autoinput()
+    tabs = st.tabs(["データ登録","データ表示"])
+    
+    with tabs[0]:
+        #写真入力フォーム
+        st.subheader("写真入力")
+        st.session_state.app.autoinput()
 
-    #入力フォーム
-    st.markdown("---") 
-    st.subheader("登録データ入力")
-    st.session_state.app.input()
+        #入力フォーム
+        st.markdown("---") 
+        st.subheader("データ登録")
+        st.session_state.app.input()
 
+    with tabs[1]:
     #登録データの表示
-    st.markdown("---") 
-    st.subheader("登録データ一覧")
-    st.session_state.app.display()   
+        st.subheader("登録データ一覧")
+        st.session_state.app.display()   
 
