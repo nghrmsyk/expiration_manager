@@ -46,21 +46,15 @@ class DatabaseManager:
         os.makedirs(self.image_dir, exist_ok=True)
         #DB接続・なければ作成
         return sqlite3.connect(self.db_path)
-        
-    def __dell__(self):
-        """デストラクタ
-        
-        データベース接続を閉じる
-        """
-        self.conn.close()
 
-    def create_table(self):
+    def create(self):
         """商品テーブルを作成するメソッド
         
         すでに商品テーブルが存在する場合は何もしない
         """
         sql = '''CREATE TABLE IF NOT EXISTS product( 
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_name VARCHAR(50),
                 item_name VARCHAR(50),
                 expiry_type CHAR(4),
                 expiry_date 
@@ -71,7 +65,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-    def insert(self, item_name, expiry_type, expiry_date):
+    def insert(self,user_name, item_name, expiry_type, expiry_date):
         """商品データをデータベースに挿入するメソッド
 
         Args:
@@ -84,16 +78,19 @@ class DatabaseManager:
         """
         conn = self.connect()
         cursor = conn.cursor()
-        cursor.execute('''INSERT INTO product (item_name, expiry_type, expiry_date)
-                        VALUES (?, ?, ?)''', (item_name, expiry_type, expiry_date))
+        cursor.execute('''INSERT INTO product (user_name, item_name, expiry_type, expiry_date)
+                        VALUES (?, ?, ?, ?)''', (user_name, item_name, expiry_type, expiry_date))
         new_id = cursor.lastrowid
         conn.commit()
         conn.close()
 
         return new_id
     
-    def fetch_all_products(self):
+    def fetch_all_products(self, user_name):
         """すべての商品データを期限の昇順で取得するメソッド
+
+        Args:
+            user_name(str): ユーザ名
 
         Returns:
             list: 商品データのリスト
@@ -101,7 +98,7 @@ class DatabaseManager:
         conn = self.connect()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM product ORDER BY expiry_date")
+        cursor.execute("SELECT * FROM product WHERE user_name = ? ORDER BY expiry_date", (user_name,))
         table = cursor.fetchall()
         conn.close()
             
@@ -123,6 +120,89 @@ class DatabaseManager:
         image_path = os.path.join(self.image_dir, f"{id}.png")
         if os.path.exists(image_path):
             os.remove(image_path)
+
+class UserManager():
+    def __init__(self):
+        """初期化メソッド
+        
+        データベースのパスを設定する
+        """
+        file_dir = os.path.dirname(os.path.abspath(__file__))
+        self.image_dir = os.path.join(file_dir, "DB")
+        self.db_path = os.path.join(file_dir, "DB", "product.db")
+
+    def connect(self):
+        """データベースに接続するメソッド
+        
+        接続がない場合は新しく作成する
+
+        Returns:
+            sqlite3.Connection: データベース接続オブジェクト
+        """
+        #DBを配置するフォルダと画像を保存するフォルダ作成
+        os.makedirs(self.image_dir, exist_ok=True)
+        #DB接続・なければ作成
+        return sqlite3.connect(self.db_path)
+
+    def create(self):
+        """ユーザテーブルを作成するメソッド
+        
+        すでにテーブルが存在する場合は何もしない
+        """
+        sql = '''CREATE TABLE IF NOT EXISTS users( 
+                name VARCHAR(50)
+                )'''
+        conn = self.connect()
+        cursor =  conn.cursor()
+        cursor.execute(sql)
+        conn.commit()
+        conn.close()
+
+    def get_users(self):
+        """すべてのユーザ情報を取得するメソッド
+
+        Returns:
+            list: ユーザ名のリスト
+        """
+        conn = self.connect()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM users")
+        table = cursor.fetchall()
+        conn.close()
+
+        return table
+
+    def register(self,name):
+        """新規にユーザ情報を追加するメソッド
+
+        Args:
+            item_name (name): ユーザ名
+
+        Returns:
+            int: 新しく追加されたデータのID
+        """
+        conn = self.connect()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO users (name) VALUES (?)', (name,))
+        new_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        return new_id
+
+    def delete(self, name):
+        """指定されたユーザを削除するメソッド
+
+        Args:
+            id (int): 削除する商品データのID
+        """
+        conn = self.connect()
+        cursor =  conn.cursor()
+        cursor.execute("DELETE FROM users WHERE name=?", (name,))
+        conn.commit()
+        conn.close()
+
 
 class ImageUploader():
     """画像を指定されたサーバーにアップロードするクラス
@@ -270,7 +350,7 @@ class App:
         column_width: 列幅
         delete_item_id: 削除するアイテムのID
     """
-    def __init__(self,db):
+    def __init__(self, db, user_db):
         """初期化メソッド
 
         Args:
@@ -284,7 +364,12 @@ class App:
 
         #DB関係の初期化
         self.db = db
-        self.db.create_table()
+        self.db.create()
+
+        self.user_db = user_db
+        self.user_db.create()
+        self.new_user = ""
+        self.del_user = ""
 
         #画像を画像処理サーバに送信する機能
         self.pre_session_uploaded_image = None
@@ -292,7 +377,10 @@ class App:
         #出力関係
         self.column_width = [4,3,3,3,2]
         self.delete_item_id = []
-    
+
+        #ログイン関係
+        self.user = "guest"
+
     def make_input_data(self, image, data_dict):   
         """画像とデータ辞書から入力データを作成するメソッド
 
@@ -388,7 +476,7 @@ class App:
         if st.button("登録"):
             for row in self.input_data:
                #データベースに追加
-                new_id = self.db.insert(row.item_name, row.expiry_type, row.expiry_date)
+                new_id = self.db.insert(self.user, row.item_name, row.expiry_type, row.expiry_date)
                 #画像をimageフォルダへ保存
                 if row.image:
                     image_path = os.path.join(self.db.image_dir, f"{new_id}.png")
@@ -428,7 +516,7 @@ class App:
         self.delete_item_id = []
 
         #データベースから画像を引っ張ってきて表示
-        for i, row in enumerate(self.db.fetch_all_products()):
+        for i, row in enumerate(self.db.fetch_all_products(self.user)):
             st.markdown("---") 
             columns = st.columns(self.column_width)
             
@@ -451,7 +539,33 @@ class App:
                 if st.checkbox("削除",key={f"delete_{row['id']}"}):
                     self.delete_item_id.append(row["id"])
 
+    def login(self):
+        """ユーザ切替画面を表示するメソッド"""
+        #ユーザ選択
+        records = self.user_db.get_users()
+        self.users = [r["name"] for r in records]
+        user_selection = st.empty()
+        st.markdown('---')
 
+        #ユーザ登録
+        if st.button("登録",key='user_register'):
+            if self.new_user:
+                self.user_db.register(self.new_user)
+                records = self.user_db.get_users()
+                self.users = [r["name"] for r in records]
+        self.new_user = st.text_input("登録するユーザ名を入力して下さい", value="")
+        st.markdown('---')
+
+        #ユーザ削除
+        if st.button("削除",key='user_delete'):
+            if self.del_user:
+                self.user_db.delete(self.del_user)
+                records = self.user_db.get_users()
+                self.users = [r["name"] for r in records]
+        self.del_user = st.selectbox('削除するユーザ',self.users)
+
+        #ユーザ選択
+        self.user = user_selection.selectbox('ユーザを選択して下さい',self.users)
     
 if __name__ == "__main__":
     #プログラム実行時に最初に一回だけ実行
@@ -460,15 +574,20 @@ if __name__ == "__main__":
     if not st.session_state.initialized:
         #最初に一回だけ実行
         db = DatabaseManager()
-        st.session_state.app = App(db)
+        user_db = user_manager = UserManager()
+        st.session_state.app = App(db, user_db)
         st.session_state.initialized = True
 
     #タイトル表示
     st.set_page_config(layout="wide")
     st.title("消費期限管理アプリ")
 
-    tabs = st.tabs(["登録","表示"])
+    tabs = st.tabs(["登録","表示","ユーザ切替"])
     
+    with tabs[2]:
+        #ユーザ切り替え
+        st.session_state.app.login()
+
     with tabs[0]:
         #写真入力フォーム
         st.session_state.app.autoinput()
