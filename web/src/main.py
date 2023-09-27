@@ -267,24 +267,24 @@ class ImageProcessor:
         self.length = 150
         self.image = image
 
-    def crop(self, cx, cy, w, h):
+    def crop(self, xmin, ymin, xmax, ymax):
         """指定された座標とサイズに基づいて画像をクロッピングするメソッド
 
         Args:
-            cx (float): 中心のx座標
-            cy (float): 中心のy座標
-            w (float): 幅
-            h (float): 高さ
+            xmin (float): x座標の最小値
+            ymin (float): y座標の最小値
+            xmax (float): x座標の最大値
+            ymax (float): x座標の最小値
 
         Returns:
             ImageProcessor: 自身のインスタンス
         """
-        img_width, img_height = self.image.size
-        left = int((cx - w/2) * img_width)
-        upper = int((cy - h/2) * img_height)
-        right = int((cx + w/2) * img_width)
-        lower = int((cy + h/2) * img_height)
-        self.image = self.image.crop((left, upper, right, lower))
+        #img_width, img_height = self.image.size
+        #left = int((cx - w/2) * img_width)
+        #upper = int((cy - h/2) * img_height)
+        #right = int((cx + w/2) * img_width)
+        #lower = int((cy + h/2) * img_height)
+        self.image = self.image.crop((xmin, ymin, xmax, ymax))
         return self
 
     def square(self):
@@ -324,14 +324,14 @@ class InputData:
 
     Attributes:
         id (str): データの一意のID。
-        image (PIL.PngImagePlugin.PngImageFile): 画像ファイル。
+        image (PIL.Image): 画像ファイル。
         item_name (str): 商品名。
         expiry_type (str): 期限の種類（例："消費期限"）。
         expiry_date (datetime.date): 期限の日付。
         enable (bool): データが有効かどうかを示すフラグ。
     """
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    image: PIL.PngImagePlugin.PngImageFile = None #画像ファイル
+    image: Image = None #画像ファイル
     item_name: str = ""
     expiry_type: str = "消費期限"
     expiry_date: type(datetime.date) = datetime.date.today()
@@ -395,8 +395,8 @@ class App:
         for row in data_dict["data"]:
                 with Image.open(image) as img:
                     img = ImageProcessor(img)
-                    cx, cy, w, h = row['coordinate'].values()
-                    img.crop(cx, cy, w, h)
+                    xmin,ymin,xmax,ymax = row['coordinate'].values()
+                    img.crop(xmin,ymin,xmax,ymax)
                     img.square()
 
                     item = InputData(

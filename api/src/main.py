@@ -3,8 +3,19 @@ from starlette.responses import JSONResponse
 from datetime import datetime
 from pydantic import BaseModel
 from enum import Enum
+from .neural_net import Net, detect
+import torch
+from PIL import Image
+import io
 
 app = FastAPI()
+
+STATE_PATH = './model.pt'
+net = Net(num_classes=1)
+net.load_state_dict(torch.load(STATE_PATH))
+net.eval()
+
+LABEL_NAMES = ["background","牛乳"]
 
 class TypeEnum(str, Enum):
     best_before = "賞味期限"
@@ -14,10 +25,10 @@ class Coordinate(BaseModel):
     """
     物体検出されたアイテムの座標情報を示すクラス
     """
-    cx: float
-    cy: float
-    w: float
-    h: float
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
 
 class ImageData(BaseModel):
     """
@@ -30,21 +41,21 @@ class ImageData(BaseModel):
 
 def process_image(contents: bytes) -> list[ImageData]:
     """アップロードされた画像を処理し、食品とその消費期限を検出する"""
-    
-    data_list = [
-        ImageData(
-            name="サンプル名1",
+    image = Image.open(io.BytesIO(contents))
+    objects = detect(image, net)
+    print(objects)
+
+    data_list = []
+    for obj in objects:
+        box = obj["box"]
+        label = obj["label"]
+
+        data_list.append(ImageData(
+            name=LABEL_NAMES[label],
             type=TypeEnum.best_before,
             date=datetime.now().strftime("%Y-%m-%d"),
-            coordinate=Coordinate(cx=0.5, cy=0.5, w=1, h=1)
-        ),
-        ImageData(
-            name="サンプル名2",
-            type=TypeEnum.expiration_date,
-            date=datetime.now().strftime("%Y-%m-%d"),
-            coordinate=Coordinate(cx=0.5, cy=0.5, w=0.5, h=0.5)
-        )
-    ]
+            coordinate=Coordinate(xmin=box[0], ymin=box[1], xmax=box[2], ymax=box[3])
+        ))
     
     return data_list
 
