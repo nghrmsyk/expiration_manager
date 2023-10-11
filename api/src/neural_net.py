@@ -1,15 +1,25 @@
 import torch
 import torch.nn as nn
-from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2
+from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2,FasterRCNN_ResNet50_FPN_V2_Weights
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.ops import nms
 from torchvision import transforms
 
+NMS_THRESHOLD = 0.05
+SELECT_THRESHOLD = 0.7
+
+def get_net():
+    STATE_PATH = './model.pt'
+    net = Net(num_classes=1)
+    net.load_state_dict(torch.load(STATE_PATH))
+    net.eval()
+
+    return net
+
 class Net(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
-
-        self.feature = fasterrcnn_resnet50_fpn_v2(pretrained=True)
+        self.feature = fasterrcnn_resnet50_fpn_v2(weights=FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1)
         #全パラメータの重みを更新しない
         for param in self.feature.parameters():
             param.requires_grad = False
@@ -59,6 +69,40 @@ def detect(image, net):
 
     x = transform(image)
     y = net(x.unsqueeze(0))[0]
-    y_nms = apply_nms(y, 0.05)
-    selected_box = select_bbox(y_nms,0.5)
+    y_nms = apply_nms(y, NMS_THRESHOLD)
+    selected_box = select_bbox(y_nms, SELECT_TH)
+    return selected_box
+
+
+
+from detectron2.config import get_cfg
+from detectron2.engine import DefaultPredictor
+import numpy as np
+
+def get_net_detectron2():
+    #パラメータファイル設定
+    cfg = get_cfg()
+    cfg.merge_from_file("config.yaml")
+    cfg.MODEL.WEIGHTS = "model.pth"
+    cfg.MODEL.DEVICE = "cpu"
+    cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.05
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7
+
+    predictor = DefaultPredictor(cfg)
+    return predictor
+
+def detect_detectron2(image, predictor):
+    image = np.array(image)[:, :, ::-1]
+    outputs = predictor(image)
+
+    boxes = outputs["instances"].pred_boxes.tensor
+    scores = outputs["instances"].scores
+    classes = outputs["instances"].pred_classes
+
+    selected_box = [{
+        "box": box.int().tolist(),
+        "score": float(score),
+        "label": int(label)
+    }for box, score, label in zip(boxes, scores, classes)]
+
     return selected_box

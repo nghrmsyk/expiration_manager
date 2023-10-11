@@ -247,6 +247,7 @@ class ImageUploader():
             response_data = response.json()
             return response_data
         except Exception as e:
+            st.text("a")
             st.error(f"エラー: {str(e)}")
             return None
 
@@ -279,11 +280,7 @@ class ImageProcessor:
         Returns:
             ImageProcessor: 自身のインスタンス
         """
-        #img_width, img_height = self.image.size
-        #left = int((cx - w/2) * img_width)
-        #upper = int((cy - h/2) * img_height)
-        #right = int((cx + w/2) * img_width)
-        #lower = int((cy + h/2) * img_height)
+
         self.image = self.image.crop((xmin, ymin, xmax, ymax))
         return self
 
@@ -398,12 +395,22 @@ class App:
                     xmin,ymin,xmax,ymax = row['coordinate'].values()
                     img.crop(xmin,ymin,xmax,ymax)
                     img.square()
+                    #期限種類
+                    if row["type"]:
+                        expiry_type = row['type']
+                    else:
+                        expiry_type = "消費期限"
+                    #期限選択
+                    if row['date']:
+                        expiry_date = datetime.datetime.strptime(row['date'], '%Y-%m-%d').date()
+                    else:
+                        expiry_date = datetime.date.today()
 
                     item = InputData(
                         image = img.image,
                         item_name = row["name"],
-                        expiry_type = row["type"],
-                        expiry_date = datetime.datetime.strptime(row['date'], '%Y-%m-%d').date()
+                        expiry_type = expiry_type,
+                        expiry_date = expiry_date
                     )
                     items.append(item)
         return items
@@ -420,8 +427,11 @@ class App:
                 #ファイルをサーバーへ転送
                 uploader = ImageUploader(image)
                 data_dict = uploader.upload()
-                #入力データ更新
-                self.input_data = self.make_input_data(image, data_dict)
+                if "data" in data_dict.keys(): 
+                    #入力データ更新
+                    self.input_data = self.make_input_data(image, data_dict)
+                else:
+                    st.text(data_dict["detail"])
                 #画像を保持
                 self.autoinput_image = image
             self.pre_session_uploaded_image = image
