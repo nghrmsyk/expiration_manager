@@ -1,7 +1,7 @@
 services:
-  web:
-    container_name: web
-    build: ./web
+  client:
+    container_name: client
+    build: ./client
     ports:
       - 8501:8501
     networks:
@@ -9,11 +9,11 @@ services:
         ipv4_address: 172.30.0.2
     tty: true
     volumes:
-      - ./web/src:/app
+      - ./client/app:/app
 
-  api:
-    container_name: api
-    build: ./api
+  server:
+    container_name: server
+    build: ./server
     ports:
       - 8000:8000
     networks:
@@ -21,7 +21,7 @@ services:
         ipv4_address: 172.30.0.3
     tty: true
     volumes:
-      - ./api/src:/app
+      - ./server/app:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/config/api-key.json
