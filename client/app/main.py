@@ -14,6 +14,7 @@ import json
 import uuid
 from db_utils import DatabaseManager, UserManager
 from image_utils import ImageProcessor, ImageUploader
+from chat_utils import Ingredient, Ingredients, DishProposer
 
 AVAILABLE_IMAGE_TYPE = ["jpg", "png", "jpeg"]
 EXPIRY_TYPE_DICT = {"消費期限" : 0, "賞味期限" : 1}
@@ -36,46 +37,6 @@ class InputData:
     expiry_type: str = "消費期限"
     expiry_date: type(datetime.date) = datetime.date.today()
     enable: bool = True
-
-
-from pydantic import BaseModel
-from typing import List
-
-class Ingredient(BaseModel):
-    食材: str
-    期限種類: str
-    期限: str
-
-class Ingredients(BaseModel):
-    食材リスト : List[Ingredient]
-    目的: str
-
-
-class DishProposer():
-    def __init__(self):
-        self.server_url = "http://172.30.0.3:8000/propose_dish/"
-    
-    def proposal(self,ingredients):
-        response = self.upload(ingredients)
-        return response
-
-    def upload(self, data):
-        """食材リストをアップロードするメソッド
-
-        Returns:
-            dict: サーバーからの応答データ。エラーが発生した場合はNone
-        """
-        try:
-            response = requests.post(self.server_url, 
-                                     data=json.dumps(data.dict()),
-                                     headers = {'Content-Type': 'application/json'} 
-            )
-            response_data = response.json()
-            return response_data
-        except Exception as e:
-            st.error(f"エラー: {str(e)}")
-            return None
-
 
 class App:
     """Streamlitアプリの主要な動作を管理するクラス
@@ -316,20 +277,23 @@ class App:
                 )
             
                 dishpropopser = DishProposer()
-                dishes = dishpropopser.proposal(ingredients)
+                try:
+                    dishes = dishpropopser.propose(ingredients)
+                    for i, item in enumerate(dishes["Dishes"]):
+                        dish =item["dish"]
+                        ings = item["ingredients"]
+                        steps = item["steps"]
 
-                for i, item in enumerate(dishes["Dishes"]):
-                    dish =item["dish"]
-                    ings = item["ingredients"]
-                    steps = item["steps"]
-
-                    st.header(f"料理{i+1}: {dish}")
-                    st.subheader("食材")
-                    st.write(', '.join(ings))
-                    st.subheader(f"手順")
-                    for i,x in enumerate(steps):
-                        st.write(f"{i+1}: {x}")
-                    st.markdown("---")
+                        st.header(f"料理{i+1}: {dish}")
+                        st.subheader("食材")
+                        st.write(', '.join(ings))
+                        st.subheader(f"手順")
+                        for i,x in enumerate(steps):
+                            st.write(f"{i+1}: {x}")
+                        st.markdown("---")
+                except Exception as e:
+                    st.error(f"エラー: {str(e)}")
+                    dishes = {}
 
     def login(self):
         """ユーザ切替画面を表示するメソッド"""
