@@ -10,6 +10,9 @@ services:
     tty: true
     volumes:
       - ./client/app:/app
+    environment:
+      - SERVER_IP=server
+      - SERVER_PORT=8000
 
   server:
     container_name: server

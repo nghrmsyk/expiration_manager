@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List
 import json, requests
+import config
 
 class Ingredient(BaseModel):
     食材: str
@@ -14,7 +15,7 @@ class Ingredients(BaseModel):
 
 class DishProposer():
     def __init__(self):
-        self.server_url = "http://172.30.0.3:8000/propose_dish/"
+        self.server_url = f"http://{config.SERVER_IP}:{config.SERVER_PORT}/propose_dish/"
     
     def propose(self,ingredients):
         response = self.upload(ingredients)
