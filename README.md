@@ -27,8 +27,8 @@ appディレクトリがコンテナの/appへマウントされます。
 
 ### 本番環境
 ```
-docker compose -f docker-compose.dev.yml build
-docker compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up
 ```
 server・clientそれぞれにおいて、  
 appディレクトリのファイルがコンテナの/appへコピーされます。
