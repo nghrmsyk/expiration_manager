@@ -3,8 +3,8 @@ from starlette.responses import JSONResponse
 from datetime import datetime
 from pydantic import BaseModel
 from enum import Enum
-from .neural_net import get_net_detectron2
-from .neural_net import detect_detectron2
+from .object_detection import get_net
+from .object_detection import detect
 
 import torch
 from PIL import Image
@@ -15,7 +15,7 @@ import os
 
 app = FastAPI()
 
-net = get_net_detectron2()
+net = get_net()
 with open('openai_key.txt', 'r', encoding='utf-8') as file:
     os.environ["OPENAI_API_KEY"] = file.read()
 
@@ -42,9 +42,7 @@ class ImageData(BaseModel):
 def process_image(contents: bytes) -> list[ImageData]:
     """アップロードされた画像を処理し、食品とその消費期限を検出する"""
     image = Image.open(io.BytesIO(contents)).convert("RGB")
-    print("物体検出スタート")
-    objects = detect_detectron2(image, net)
-    print(f"物体検出完了 :{objects}")
+    objects = detect(image, net)
     texts = ocr(image)
 
     object_num = len(objects)
@@ -54,7 +52,6 @@ def process_image(contents: bytes) -> list[ImageData]:
             "box":[0, 0, image.size[0], image.size[1]],
             "label":0
         }]
-        print(f"物体なかった: {objects}")
 
     data_list = []
     #バウンディングボックスごとに処理
@@ -65,12 +62,9 @@ def process_image(contents: bytes) -> list[ImageData]:
         #消費期限or賞味期限を抽出
         if object_num == 1: #バウンディングボックスが１つの場合は、画像全体から文字を探す
             ocr_box = [0, 0, image.size[0], image.size[1]]
-            print(f"物体１つだけ: {ocr_box}")
         else:
             ocr_box = box
-            print(f"物体１つ以外: {ocr_box}")
         text = get_texts(ocr_box, texts)
-        print(text)
         date = find_expiration_date(text)
         date_type = find_date_type(text)
 
