@@ -15,8 +15,8 @@ import numpy as np
 def get_net():
     #パラメータファイル設定
     cfg = get_cfg()
-    cfg.merge_from_file("config.yaml")
-    cfg.MODEL.WEIGHTS = "model.pth"
+    cfg.merge_from_file("config/config.yaml")
+    cfg.MODEL.WEIGHTS = "config/model.pth"
     cfg.MODEL.DEVICE = "cpu"
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.05
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7

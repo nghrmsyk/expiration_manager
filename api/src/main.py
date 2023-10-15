@@ -3,20 +3,20 @@ from starlette.responses import JSONResponse
 from datetime import datetime
 from pydantic import BaseModel
 from enum import Enum
-from .object_detection import get_net
-from .object_detection import detect
+from object_detection import get_net
+from object_detection import detect
 
 import torch
 from PIL import Image
 import io
-from .ocr import ocr, get_texts, find_date_type, find_expiration_date
-from .chat import propose_dish
+from ocr import ocr, get_texts, find_date_type, find_expiration_date
+from chat import propose_dish
 import os
 
 app = FastAPI()
 
 net = get_net()
-with open('openai_key.txt', 'r', encoding='utf-8') as file:
+with open('config/openai_key.txt', 'r', encoding='utf-8') as file:
     os.environ["OPENAI_API_KEY"] = file.read()
 
 LABEL_NAMES = ["","卵","牛乳","食パン"]

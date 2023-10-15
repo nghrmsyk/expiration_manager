@@ -9,4 +9,4 @@ RUN pip install -U pydantic
 
 ENTRYPOINT ["streamlit", "run"]
 
-CMD ["src/main.py"]
+CMD ["main.py"]
