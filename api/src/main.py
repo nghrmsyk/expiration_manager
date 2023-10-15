@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Depends
 from starlette.responses import JSONResponse
 from datetime import datetime
 from pydantic import BaseModel
@@ -10,10 +10,14 @@ import torch
 from PIL import Image
 import io
 from .ocr import ocr, get_texts, find_date_type, find_expiration_date
+from .chat import propose_dish
+import os
 
 app = FastAPI()
 
 net = get_net_detectron2()
+with open('openai_key.txt', 'r', encoding='utf-8') as file:
+    os.environ["OPENAI_API_KEY"] = file.read()
 
 LABEL_NAMES = ["","卵","牛乳","食パン"]
 
@@ -89,5 +93,35 @@ async def detect_expiration(file: UploadFile = File(...)):
         #物体検出
         data_list = process_image(contents)
         return {"data": data_list}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+
+from pydantic import BaseModel, Field, validator
+from typing import List
+from datetime import datetime
+
+class Ingredient(BaseModel):
+    食材: str
+    期限種類: str
+    期限: str
+
+class ChatRequest(BaseModel):
+    食材リスト : List[Ingredient]
+    目的: str
+
+@app.post("/propose_dish/")
+async def propose(query: ChatRequest):
+    """提案された食材から料理を提案する"""
+    ingredients = [dict(ing) for ing in query.食材リスト]
+
+    try:
+        proposed_dish = propose_dish(
+            dish_num="5", 
+            ingredients=ingredients, 
+            today=datetime.now().date().strftime("%Y-%m-%d"), 
+            condition=query.目的
+        )
+        return proposed_dish
+
     except Exception as e:
         return JSONResponse(status_code=400, content={"detail": str(e)})

@@ -334,6 +334,46 @@ class InputData:
     expiry_date: type(datetime.date) = datetime.date.today()
     enable: bool = True
 
+
+from pydantic import BaseModel
+from typing import List
+
+class Ingredient(BaseModel):
+    食材: str
+    期限種類: str
+    期限: str
+
+class Ingredients(BaseModel):
+    食材リスト : List[Ingredient]
+    目的: str
+
+
+class DishProposer():
+    def __init__(self):
+        self.server_url = "http://172.30.0.3:8000/propose_dish/"
+    
+    def proposal(self,ingredients):
+        response = self.upload(ingredients)
+        return response
+
+    def upload(self, data):
+        """食材リストをアップロードするメソッド
+
+        Returns:
+            dict: サーバーからの応答データ。エラーが発生した場合はNone
+        """
+        try:
+            response = requests.post(self.server_url, 
+                                     data=json.dumps(data.dict()),
+                                     headers = {'Content-Type': 'application/json'} 
+            )
+            response_data = response.json()
+            return response_data
+        except Exception as e:
+            st.error(f"エラー: {str(e)}")
+            return None
+
+
 class App:
     """Streamlitアプリの主要な動作を管理するクラス
 
@@ -548,6 +588,39 @@ class App:
             with columns[4]:
                 if st.checkbox("削除",key={f"delete_{row['id']}"}):
                     self.delete_item_id.append(row["id"])
+    
+    def dish(self):
+        purpose = st.selectbox("食事の目的", ["夕食", "昼食", "朝食", "おやつ"], key="シチュエーション")
+        placeholder = st.empty()
+        if st.button("提案"):
+            with placeholder.container():
+                ing_list  = []
+                for row in self.db.fetch_all_products(self.user):
+                    ing_list.append(Ingredient(
+                        食材 = row["item_name"],
+                        期限種類 = row["expiry_type"],
+                        期限 = row["expiry_date"]
+                    ))
+                ingredients = Ingredients(
+                    食材リスト = ing_list,
+                    目的= "夕食"
+                )
+            
+                dishpropopser = DishProposer()
+                dishes = dishpropopser.proposal(ingredients)
+
+                for i, item in enumerate(dishes["Dishes"]):
+                    dish =item["dish"]
+                    ings = item["ingredients"]
+                    steps = item["steps"]
+
+                    st.header(f"料理{i+1}: {dish}")
+                    st.subheader("食材")
+                    st.write(', '.join(ings))
+                    st.subheader(f"手順")
+                    for i,x in enumerate(steps):
+                        st.write(f"{i+1}: {x}")
+                    st.markdown("---")
 
     def login(self):
         """ユーザ切替画面を表示するメソッド"""
@@ -576,6 +649,7 @@ class App:
 
         #ユーザ選択
         self.user = user_selection.selectbox('ユーザを選択して下さい',self.users)
+
     
 if __name__ == "__main__":
     #プログラム実行時に最初に一回だけ実行
@@ -592,9 +666,9 @@ if __name__ == "__main__":
     st.set_page_config(layout="wide")
     st.title("消費期限管理アプリ")
 
-    tabs = st.tabs(["登録","表示","ユーザ切替"])
+    tabs = st.tabs(["登録","表示","料理提案","ユーザ切替"])
     
-    with tabs[2]:
+    with tabs[3]:
         #ユーザ切り替え
         st.session_state.app.login()
 
@@ -610,4 +684,12 @@ if __name__ == "__main__":
     #登録データの表示
         #st.subheader("登録データ一覧")
         st.session_state.app.display()   
+
+    with tabs[2]:
+        #料理提案
+        st.session_state.app.dish()
+
+
+
+
 

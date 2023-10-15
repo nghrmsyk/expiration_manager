@@ -10,6 +10,7 @@ RUN pip install python-multipart
 RUN pip install torch torchvision
 RUN pip install google-cloud-vision
 RUN pip install opencv-python
+RUN pip install langchain openai
 
 RUN apt-get update && \
     apt-get install -y \
