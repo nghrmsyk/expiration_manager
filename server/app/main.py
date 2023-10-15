@@ -11,15 +11,13 @@ import torch
 from PIL import Image
 import io
 from ocr import ocr, get_texts, find_date_type, find_expiration_date
-from chat import propose_dish
+from chat import propose_dish, set_api_key
 import os
 
 app = FastAPI()
 
-
 net, LABEL_NAMES = get_net()
-with open(config.OPENAI_APIKEY_PATH, 'r', encoding='utf-8') as file:
-    os.environ["OPENAI_API_KEY"] = file.read()
+set_api_key()
 
 class Coordinate(BaseModel):
     """
