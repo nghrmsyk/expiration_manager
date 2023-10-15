@@ -144,7 +144,7 @@ class UserManager():
         #DB接続・なければ作成
         return sqlite3.connect(self.db_path)
 
-    def create(self):
+    def create(self, make_init_user = True):
         """ユーザテーブルを作成するメソッド
         
         すでにテーブルが存在する場合は何もしない
@@ -157,6 +157,10 @@ class UserManager():
         cursor.execute(sql)
         conn.commit()
         conn.close()
+
+        #ユーザが登録されていなければguestユーザを作成
+        if make_init_user and not len(self.get_users()):
+            self.register("guest")
 
     def get_users(self):
         """すべてのユーザ情報を取得するメソッド
