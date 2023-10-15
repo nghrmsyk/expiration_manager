@@ -75,6 +75,9 @@ class App:
         #画像を画像処理サーバに送信する機能
         self.pre_session_uploaded_image = None
 
+        #料理提案関係
+        self.proposed_dishes = {"Dishes":[]}
+
         #出力関係
         self.column_width = [4,3,3,3,2]
         self.delete_item_id = []
@@ -261,39 +264,39 @@ class App:
     
     def dish(self):
         purpose = st.selectbox("食事の目的", ["夕食", "昼食", "朝食", "おやつ"], key="シチュエーション")
-        placeholder = st.empty()
-        if st.button("提案"):
-            with placeholder.container():
-                ing_list  = []
-                for row in self.db.fetch_all_products(self.user):
-                    ing_list.append(Ingredient(
-                        食材 = row["item_name"],
-                        期限種類 = row["expiry_type"],
-                        期限 = row["expiry_date"]
-                    ))
-                ingredients = Ingredients(
-                    食材リスト = ing_list,
-                    目的= "夕食"
-                )
+        if st.button("提案"): 
+            ing_list  = []
+            for row in self.db.fetch_all_products(self.user):
+                ing_list.append(Ingredient(
+                    食材 = row["item_name"],
+                    期限種類 = row["expiry_type"],
+                    期限 = row["expiry_date"]
+                ))
+            ingredients = Ingredients(
+                食材リスト = ing_list,
+                目的= "夕食"
+            )
+        
+            dishpropopser = DishProposer()
+            try:
+                with st.spinner('RUNNING...'):
+                    proposed_dishes = dishpropopser.propose(ingredients)
+            except Exception as e:
+                st.error(f"エラー: {str(e)}")
             
-                dishpropopser = DishProposer()
-                try:
-                    dishes = dishpropopser.propose(ingredients)
-                    for i, item in enumerate(dishes["Dishes"]):
-                        dish =item["dish"]
-                        ings = item["ingredients"]
-                        steps = item["steps"]
+            #料理表示
+            for i, item in enumerate(proposed_dishes["Dishes"]):
+                dish =item["dish"]
+                ings = item["ingredients"]
+                steps = item["steps"]
 
-                        st.header(f"料理{i+1}: {dish}")
-                        st.subheader("食材")
-                        st.write(', '.join(ings))
-                        st.subheader(f"手順")
-                        for i,x in enumerate(steps):
-                            st.write(f"{i+1}: {x}")
-                        st.markdown("---")
-                except Exception as e:
-                    st.error(f"エラー: {str(e)}")
-                    dishes = {}
+                st.header(f"料理{i+1}: {dish}")
+                st.subheader("食材")
+                st.write(', '.join(ings))
+                st.subheader(f"手順")
+                for i,x in enumerate(steps):
+                    st.write(f"{i+1}: {x}")
+                st.markdown("---")
 
     def login(self):
         """ユーザ切替画面を表示するメソッド"""
