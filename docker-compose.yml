@@ -25,7 +25,11 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/config/api-key.json
-
+      - DETECTRON2_CONFIG=/app/config/config.yaml
+      - DETECTRON2_MODEL_WEIGHT=/app/config/model.pth
+      - DETECTRON2_LABELS=/app/config/labels.json
+      - OPENAI_APIKEY=/app/config/openai_key.txt
+    
 networks:
   app_net:
     driver: bridge

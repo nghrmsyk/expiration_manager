@@ -5,7 +5,8 @@ from langchain.prompts import PromptTemplate
 from pydantic import BaseModel, Field, validator
 from langchain.output_parsers import PydanticOutputParser
 from typing import List
-langchain.verbose =True
+import os
+import config
 
 
 # 出力形式の指定
@@ -17,6 +18,10 @@ class Dish(BaseModel):
 
 class DishList(BaseModel):
     Dishes : List[Dish] = Field(description="Dish List")
+
+def set_api_key():
+    with open(config.OPENAI_APIKEY_PATH, 'r', encoding='utf-8') as file:
+        os.environ["OPENAI_API_KEY"] = file.read()
 
 def get_prompt():
     #出力形式

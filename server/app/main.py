@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from enum import Enum
 from object_detection import get_net
 from object_detection import detect
+import config
 
 import torch
 from PIL import Image
@@ -15,11 +16,10 @@ import os
 
 app = FastAPI()
 
-net = get_net()
-with open('config/openai_key.txt', 'r', encoding='utf-8') as file:
-    os.environ["OPENAI_API_KEY"] = file.read()
 
-LABEL_NAMES = ["","卵","牛乳","食パン"]
+net, LABEL_NAMES = get_net()
+with open(config.OPENAI_APIKEY_PATH, 'r', encoding='utf-8') as file:
+    os.environ["OPENAI_API_KEY"] = file.read()
 
 class Coordinate(BaseModel):
     """
