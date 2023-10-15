@@ -1,7 +1,11 @@
 services:
   client:
     container_name: client
-    build: ./client
+    build: 
+      context: ./client
+      dockerfile: Dockerfile
+      target: development
+
     ports:
       - 8501:8501
     networks:
@@ -16,7 +20,10 @@ services:
 
   server:
     container_name: server
-    build: ./server
+    build: 
+      context: ./server
+      dockerfile: Dockerfile
+      target: development
     ports:
       - 8000:8000
     networks:

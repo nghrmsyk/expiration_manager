@@ -1,4 +1,4 @@
-FROM python:3.11.5-slim-bullseye
+FROM python:3.11.5-slim-bullseye AS base
 
 WORKDIR /app
 
@@ -22,3 +22,10 @@ RUN python -m pip install 'git+https://github.com/facebookresearch/detectron2.gi
 
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+#本番環境
+FROM base AS production
+COPY ./app /app
+
+#開発環境
+FROM base AS development
