@@ -15,7 +15,7 @@ class Ingredients(BaseModel):
 
 class DishProposer():
     def __init__(self):
-        self.server_url = f"http://{config.SERVER_IP}:{config.SERVER_PORT}/propose_dish/"
+        self.server_url = f"{config.SERVER_BASE_URL}/propose_dish/"
     
     def propose(self,ingredients):
         response = self.upload(ingredients)

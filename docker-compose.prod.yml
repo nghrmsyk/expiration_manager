@@ -12,8 +12,7 @@ services:
         ipv4_address: 172.30.0.2
     tty: true
     environment:
-      - SERVER_IP=server
-      - SERVER_PORT=8000
+      - SERVER_BASE_URL=http://server:8000
 
   server:
     container_name: server
